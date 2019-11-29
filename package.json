@@ -1,0 +1,16 @@
+{
+  "name": "adapt-authoring-authored",
+  "version": "0.0.1",
+  "description": "Adds extra 'authoring' attributes to data",
+  "homepage": "https://github.com/adapt-security/adapt-authoring-authored",
+  "main": "index.js",
+  "adapt_authoring": {
+    "module": true,
+    "documentation": {
+      "enable": true
+    }
+  },
+  "peerDependencies": {
+    "adapt-authoring-core": "git+https://github.com/taylortom/adapt-authoring-core.git"
+  }
+}
