@@ -5,13 +5,16 @@
   "type": "object",
   "properties": {
     "createdAt": {
-      "type": "string"
+      "type": "string",
+      "format": "date-time"
     },
     "createdBy": {
-      "type": "string"
+      "type": "string",
+      "format": "objectid"
     },
     "updatedAt": {
-      "type": "string"
+      "type": "string",
+      "format": "date-time"
     }
   },
   "required": ["createdAt","createdBy","updatedAt"]
