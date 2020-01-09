@@ -4,12 +4,6 @@
   "description": "Adds extra authoring attributes to data",
   "homepage": "https://github.com/adapt-security/adapt-authoring-authored",
   "main": "index.js",
-  "adapt_authoring": {
-    "module": true,
-    "documentation": {
-      "enable": true
-    }
-  },
   "peerDependencies": {
     "adapt-authoring-core": "github:adapt-security/adapt-authoring-core.git"
   }
