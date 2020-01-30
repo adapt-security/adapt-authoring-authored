@@ -10,7 +10,7 @@
     },
     "createdBy": {
       "type": "string",
-      "format": "objectid"
+      "isObjectId": true
     },
     "updatedAt": {
       "type": "string",
