@@ -1,21 +1,24 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "authored",
+  "$id": "authored",
   "description": "Adds properties relating to authoring",
-  "type": "object",
-  "properties": {
-    "createdAt": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "createdBy": {
-      "type": "string",
-      "isObjectId": true
-    },
-    "updatedAt": {
-      "type": "string",
-      "format": "date-time"
+  "$merge": {
+    "with": {
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdBy": {
+          "type": "string",
+          "isObjectId": true
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["createdAt","createdBy","updatedAt"]
     }
-  },
-  "required": ["createdAt","createdBy","updatedAt"]
+  }
 }
