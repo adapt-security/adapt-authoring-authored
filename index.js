@@ -1,2 +1,1 @@
-const authoredModule = require('./lib/authoredModule');
-module.exports = authoredModule;
+module.exports = require('./lib/AuthoredModule');
