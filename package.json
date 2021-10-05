@@ -4,8 +4,8 @@
   "description": "Adds extra authoring attributes to data",
   "homepage": "https://github.com/adaptlearning/adapt-authoring-authored",
   "license": "GPL-3.0",
-  "repository": "adaptlearning/adapt-authoring-authored",
   "main": "index.js",
+  "repository": "adaptlearning/adapt-authoring-authored",
   "peerDependencies": {
     "adapt-authoring-core": "adapt-security/adapt-authoring-core"
   }
