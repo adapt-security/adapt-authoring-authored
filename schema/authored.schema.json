@@ -6,15 +6,18 @@
     "with": {
       "properties": {
         "createdAt": {
+          "description": "Date that the data was created",
           "type": "string",
           "format": "date-time",
           "isDate": true
         },
         "createdBy": {
+          "description": "Author of the data",
           "type": "string",
           "isObjectId": true
         },
         "updatedAt": {
+          "description": "Date that the data was last modified",
           "type": "string",
           "format": "date-time",
           "isDate": true
