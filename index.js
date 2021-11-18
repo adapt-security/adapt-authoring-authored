@@ -1,1 +1,1 @@
-module.exports = require('./lib/AuthoredModule');
+export { default } from './lib/AuthoredModule.js';
