@@ -8,6 +8,6 @@
   "main": "index.js",
   "repository": "adaptlearning/adapt-authoring-authored",
   "peerDependencies": {
-    "adapt-authoring-core": "adapt-security/adapt-authoring-core"
+    "adapt-authoring-core": "github:adapt-security/adapt-authoring-core"
   }
 }
