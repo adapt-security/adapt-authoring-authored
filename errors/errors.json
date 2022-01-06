@@ -1,0 +1,6 @@
+{
+  "DUPL_AUTHORED_MODULE_NAME": {
+    "description": "Function must be overridden in child class",
+    "statusCode": 500
+  }
+}
