@@ -2,7 +2,7 @@
   "name": "adapt-authoring-authored",
   "version": "0.0.1",
   "description": "Adds extra authoring attributes to data",
-  "homepage": "https://github.com/adaptlearning/adapt-authoring-authored",
+  "homepage": "https://github.com/adapt-security/adapt-authoring-authored",
   "license": "GPL-3.0",
   "type": "module",
   "main": "index.js",
