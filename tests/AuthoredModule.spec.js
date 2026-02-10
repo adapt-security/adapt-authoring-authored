@@ -151,7 +151,7 @@ describe('AuthoredModule', () => {
 
     it('should register schemas hook', async () => {
       await instance.init()
-      assert.equal(mockJsonSchema.registerSchemasHook.tap.mock.calls.length > 0, true)
+      assert.ok(mockJsonSchema.registerSchemasHook.tap.mock.calls.length > 0)
     })
   })
 
@@ -196,10 +196,10 @@ describe('AuthoredModule', () => {
     it('should register hooks on module', async () => {
       instance.registeredModules = []
       await instance.registerModule(mockMod)
-      assert.equal(mockMod.requestHook.tap.mock.calls.length > 0, true)
-      assert.equal(mockMod.preInsertHook.tap.mock.calls.length > 0, true)
-      assert.equal(mockMod.preUpdateHook.tap.mock.calls.length > 0, true)
-      assert.equal(mockMod.preDeleteHook.tap.mock.calls.length > 0, true)
+      assert.ok(mockMod.requestHook.tap.mock.calls.length > 0)
+      assert.ok(mockMod.preInsertHook.tap.mock.calls.length > 0)
+      assert.ok(mockMod.preUpdateHook.tap.mock.calls.length > 0)
+      assert.ok(mockMod.preDeleteHook.tap.mock.calls.length > 0)
     })
   })
 
@@ -351,8 +351,8 @@ describe('AuthoredModule', () => {
       const data = { _courseId: 'course123' }
       await instance.updateCourseTimestamp(data)
 
-      assert.equal(mockContent.find.mock.calls.length > 0, true)
-      assert.equal(mockMongodb.update.mock.calls.length > 0, true)
+      assert.ok(mockContent.find.mock.calls.length > 0)
+      assert.ok(mockMongodb.update.mock.calls.length > 0)
     })
 
     it('should not update if no config found', async () => {
