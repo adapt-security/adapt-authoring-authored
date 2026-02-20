@@ -7,6 +7,9 @@
   "type": "module",
   "main": "index.js",
   "repository": "github:adapt-security/adapt-authoring-authored",
+  "scripts": {
+    "test": "node --test 'tests/**/*.spec.js'"
+  },
   "peerDependencies": {
     "adapt-authoring-content": "^1.2.3",
     "adapt-authoring-core": "^1.7.0",
