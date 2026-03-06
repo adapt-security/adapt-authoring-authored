@@ -399,6 +399,32 @@ describe('AuthoredModule', () => {
       assert.equal(mockMongodb.update.mock.calls.length, 0)
     })
 
+    it('should return early when _courseId is missing', async () => {
+      const mockContent = createMockContentModule()
+      const mockMongodb = { update: mock.fn(async () => {}) }
+      const { instance } = createInstance({
+        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
+      })
+
+      await instance.updateCourseTimestamp({})
+
+      assert.equal(mockContent.findOne.mock.calls.length, 0)
+      assert.equal(mockMongodb.update.mock.calls.length, 0)
+    })
+
+    it('should return early when _courseId is undefined', async () => {
+      const mockContent = createMockContentModule()
+      const mockMongodb = { update: mock.fn(async () => {}) }
+      const { instance } = createInstance({
+        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
+      })
+
+      await instance.updateCourseTimestamp({ _courseId: undefined })
+
+      assert.equal(mockContent.findOne.mock.calls.length, 0)
+      assert.equal(mockMongodb.update.mock.calls.length, 0)
+    })
+
     it('should use the correct collection name from the content module', async () => {
       const mockConfig = { _id: 'config42' }
       const mockContent = createMockContentModule({
