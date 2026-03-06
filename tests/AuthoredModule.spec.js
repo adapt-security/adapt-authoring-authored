@@ -51,6 +51,13 @@ function createInstance (overrides = {}) {
   return { instance, mockApp, mockJsonschema }
 }
 
+function createMockContentModule (opts = {}) {
+  return {
+    findOne: mock.fn(async () => opts.findOneResult ?? undefined),
+    collectionName: opts.collectionName || 'content'
+  }
+}
+
 function createMockMod (opts = {}) {
   return {
     name: opts.name || 'test-mod',
@@ -296,17 +303,18 @@ describe('AuthoredModule', () => {
   })
 
   describe('#updateTimestamps()', () => {
-    it('should set updatedAt on any action', async () => {
-      const mockContent = {
-        find: mock.fn(async () => []),
-        collectionName: 'content'
-      }
-      const mockMongodb = { update: mock.fn(async () => {}) }
-      const { instance } = createInstance({
-        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
-      })
-      const data = {}
+    let instance, mockContent, mockMongodb
 
+    beforeEach(() => {
+      mockContent = createMockContentModule()
+      mockMongodb = { update: mock.fn(async () => {}) }
+      ;({ instance } = createInstance({
+        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
+      }))
+    })
+
+    it('should set updatedAt on any action', async () => {
+      const data = {}
       await instance.updateTimestamps('update', data)
 
       assert.ok(data.updatedAt)
@@ -314,16 +322,7 @@ describe('AuthoredModule', () => {
     })
 
     it('should set createdAt equal to updatedAt on insert', async () => {
-      const mockContent = {
-        find: mock.fn(async () => []),
-        collectionName: 'content'
-      }
-      const mockMongodb = { update: mock.fn(async () => {}) }
-      const { instance } = createInstance({
-        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
-      })
       const data = {}
-
       await instance.updateTimestamps('insert', data)
 
       assert.ok(data.createdAt)
@@ -331,32 +330,14 @@ describe('AuthoredModule', () => {
     })
 
     it('should not set createdAt on update action', async () => {
-      const mockContent = {
-        find: mock.fn(async () => []),
-        collectionName: 'content'
-      }
-      const mockMongodb = { update: mock.fn(async () => {}) }
-      const { instance } = createInstance({
-        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
-      })
       const data = {}
-
       await instance.updateTimestamps('update', data)
 
       assert.equal(data.createdAt, undefined)
     })
 
     it('should produce a valid ISO 8601 timestamp', async () => {
-      const mockContent = {
-        find: mock.fn(async () => []),
-        collectionName: 'content'
-      }
-      const mockMongodb = { update: mock.fn(async () => {}) }
-      const { instance } = createInstance({
-        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
-      })
       const data = {}
-
       await instance.updateTimestamps('insert', data)
 
       const parsed = new Date(data.updatedAt)
@@ -365,39 +346,26 @@ describe('AuthoredModule', () => {
     })
 
     it('should call updateCourseTimestamp', async () => {
-      const mockContent = {
-        find: mock.fn(async () => []),
-        collectionName: 'content'
-      }
-      const mockMongodb = { update: mock.fn(async () => {}) }
-      const waitForModule = mock.fn(async () => [mockContent, mockMongodb])
-      const { instance } = createInstance({ waitForModule })
       const data = { _courseId: 'course1' }
-
       await instance.updateTimestamps('update', data)
 
-      // waitForModule should have been called for content + mongodb
-      assert.ok(waitForModule.mock.calls.length > 0)
+      assert.ok(mockContent.findOne.mock.calls.length > 0)
     })
   })
 
   describe('#updateCourseTimestamp()', () => {
     it('should update course config timestamp when config exists', async () => {
       const mockConfig = { _id: 'config1' }
-      const mockContent = {
-        find: mock.fn(async () => [mockConfig]),
-        collectionName: 'content'
-      }
+      const mockContent = createMockContentModule({ findOneResult: mockConfig })
       const mockMongodb = { update: mock.fn(async () => {}) }
       const { instance } = createInstance({
         waitForModule: mock.fn(async () => [mockContent, mockMongodb])
       })
-      const data = { _courseId: 'course1' }
 
-      await instance.updateCourseTimestamp(data)
+      await instance.updateCourseTimestamp({ _courseId: 'course1' })
 
-      assert.equal(mockContent.find.mock.calls.length, 1)
-      const findArgs = mockContent.find.mock.calls[0].arguments
+      assert.equal(mockContent.findOne.mock.calls.length, 1)
+      const findArgs = mockContent.findOne.mock.calls[0].arguments
       assert.deepEqual(findArgs[0], { _type: 'config', _courseId: 'course1' })
 
       assert.equal(mockMongodb.update.mock.calls.length, 1)
@@ -408,44 +376,35 @@ describe('AuthoredModule', () => {
     })
 
     it('should return early when no config is found', async () => {
-      const mockContent = {
-        find: mock.fn(async () => []),
-        collectionName: 'content'
-      }
+      const mockContent = createMockContentModule()
       const mockMongodb = { update: mock.fn(async () => {}) }
       const { instance } = createInstance({
         waitForModule: mock.fn(async () => [mockContent, mockMongodb])
       })
-      const data = { _courseId: 'course1' }
 
-      await instance.updateCourseTimestamp(data)
+      await instance.updateCourseTimestamp({ _courseId: 'course1' })
 
       assert.equal(mockMongodb.update.mock.calls.length, 0)
     })
 
-    it('should return early when find returns undefined config', async () => {
-      const mockContent = {
-        find: mock.fn(async () => [undefined]),
-        collectionName: 'content'
-      }
+    it('should return early when findOne returns null', async () => {
+      const mockContent = createMockContentModule({ findOneResult: null })
       const mockMongodb = { update: mock.fn(async () => {}) }
       const { instance } = createInstance({
         waitForModule: mock.fn(async () => [mockContent, mockMongodb])
       })
-      const data = { _courseId: 'course1' }
 
-      await instance.updateCourseTimestamp(data)
+      await instance.updateCourseTimestamp({ _courseId: 'course1' })
 
-      // config is undefined due to destructuring [undefined], so should return early
       assert.equal(mockMongodb.update.mock.calls.length, 0)
     })
 
     it('should use the correct collection name from the content module', async () => {
       const mockConfig = { _id: 'config42' }
-      const mockContent = {
-        find: mock.fn(async () => [mockConfig]),
+      const mockContent = createMockContentModule({
+        findOneResult: mockConfig,
         collectionName: 'myCustomCollection'
-      }
+      })
       const mockMongodb = { update: mock.fn(async () => {}) }
       const { instance } = createInstance({
         waitForModule: mock.fn(async () => [mockContent, mockMongodb])
