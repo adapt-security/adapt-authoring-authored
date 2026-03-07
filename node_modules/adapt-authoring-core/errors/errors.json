@@ -1,0 +1,11 @@
+{
+  "SPAWN": {
+    "data": {
+      "cmd": "The command",
+      "cwd": "Current working directory for command",
+      "error": "The error message"
+    },
+    "description": "Error occurred spawning command",
+    "statusCode": 500
+  }
+}

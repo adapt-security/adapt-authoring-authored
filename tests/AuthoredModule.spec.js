@@ -23,6 +23,10 @@ function createInstance (overrides = {}) {
       API_MODULE_INVALID_CLASS: {
         setData: mock.fn(function () { return this }),
         message: 'Invalid class'
+      },
+      INVALID_CREATED_BY: {
+        setData: mock.fn(function () { return this }),
+        message: 'Invalid createdBy'
       }
     },
     dependencyloader: {
@@ -268,7 +272,11 @@ describe('AuthoredModule', () => {
       assert.equal(req.apiData.data.createdBy, undefined)
     })
 
-    it('should not overwrite existing createdBy', async () => {
+    it('should not overwrite existing createdBy when user exists', async () => {
+      const mockUsers = { findOne: mock.fn(async () => ({ _id: 'existingUser' })) }
+      const { instance: inst } = createInstance({
+        waitForModule: mock.fn(async () => mockUsers)
+      })
       const req = {
         method: 'POST',
         apiData: {
@@ -280,9 +288,11 @@ describe('AuthoredModule', () => {
         }
       }
 
-      await instance.updateAuthor(req)
+      await inst.updateAuthor(req)
 
       assert.equal(req.apiData.data.createdBy, 'existingUser')
+      assert.equal(mockUsers.findOne.mock.calls.length, 1)
+      assert.deepEqual(mockUsers.findOne.mock.calls[0].arguments[0], { _id: 'existingUser' })
     })
 
     it('should not set createdBy when modifying is undefined', async () => {
@@ -299,6 +309,101 @@ describe('AuthoredModule', () => {
       await instance.updateAuthor(req)
 
       assert.equal(req.apiData.data.createdBy, undefined)
+    })
+
+    it('should validate an explicitly provided createdBy and accept when user exists', async () => {
+      const mockUsers = { findOne: mock.fn(async () => ({ _id: 'user456' })) }
+      const { instance: inst } = createInstance({
+        waitForModule: mock.fn(async () => mockUsers)
+      })
+      const req = {
+        method: 'POST',
+        apiData: {
+          modifying: true,
+          data: { createdBy: 'user456' }
+        },
+        auth: {
+          user: { _id: { toString: () => 'user123' } }
+        }
+      }
+
+      await assert.doesNotReject(() => inst.updateAuthor(req))
+
+      assert.equal(mockUsers.findOne.mock.calls.length, 1)
+      assert.deepEqual(mockUsers.findOne.mock.calls[0].arguments[0], { _id: 'user456' })
+    })
+
+    it('should throw INVALID_CREATED_BY when provided createdBy user does not exist', async () => {
+      const mockUsers = { findOne: mock.fn(async () => null) }
+      const { instance: inst } = createInstance({
+        waitForModule: mock.fn(async () => mockUsers)
+      })
+      const req = {
+        method: 'POST',
+        apiData: {
+          modifying: true,
+          data: { createdBy: 'nonexistent' }
+        },
+        auth: {
+          user: { _id: { toString: () => 'user123' } }
+        }
+      }
+
+      await assert.rejects(
+        () => inst.updateAuthor(req),
+        (err) => {
+          assert.equal(err.message, 'Invalid createdBy')
+          return true
+        }
+      )
+    })
+
+    it('should validate createdBy on non-POST requests (e.g. PUT) when provided', async () => {
+      const mockUsers = { findOne: mock.fn(async () => null) }
+      const { instance: inst } = createInstance({
+        waitForModule: mock.fn(async () => mockUsers)
+      })
+      const req = {
+        method: 'PUT',
+        apiData: {
+          modifying: true,
+          data: { createdBy: 'nonexistent' }
+        },
+        auth: {
+          user: { _id: { toString: () => 'user123' } }
+        }
+      }
+
+      await assert.rejects(
+        () => inst.updateAuthor(req),
+        (err) => {
+          assert.ok(err)
+          return true
+        }
+      )
+
+      assert.equal(mockUsers.findOne.mock.calls.length, 1)
+    })
+
+    it('should not validate createdBy on non-POST requests when createdBy is absent', async () => {
+      const mockUsers = { findOne: mock.fn(async () => null) }
+      const { instance: inst } = createInstance({
+        waitForModule: mock.fn(async () => mockUsers)
+      })
+      const req = {
+        method: 'PUT',
+        apiData: {
+          modifying: true,
+          data: {}
+        },
+        auth: {
+          user: { _id: { toString: () => 'user123' } }
+        }
+      }
+
+      await assert.doesNotReject(() => inst.updateAuthor(req))
+
+      assert.equal(mockUsers.findOne.mock.calls.length, 0)
     })
   })
 
