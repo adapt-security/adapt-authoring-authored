@@ -2,5 +2,9 @@
   "DUPL_AUTHORED_MODULE_NAME": {
     "description": "Function must be overridden in child class",
     "statusCode": 500
+  },
+  "INVALID_CREATED_BY": {
+    "description": "The specified createdBy user does not exist",
+    "statusCode": 400
   }
 }
