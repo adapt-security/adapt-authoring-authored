@@ -293,6 +293,7 @@ describe('AuthoredModule', () => {
       assert.equal(req.apiData.data.createdBy, 'existingUser')
       assert.equal(mockUsers.findOne.mock.calls.length, 1)
       assert.deepEqual(mockUsers.findOne.mock.calls[0].arguments[0], { _id: 'existingUser' })
+      assert.deepEqual(mockUsers.findOne.mock.calls[0].arguments[1], { strict: false })
     })
 
     it('should not set createdBy when modifying is undefined', async () => {
@@ -331,6 +332,7 @@ describe('AuthoredModule', () => {
 
       assert.equal(mockUsers.findOne.mock.calls.length, 1)
       assert.deepEqual(mockUsers.findOne.mock.calls[0].arguments[0], { _id: 'user456' })
+      assert.deepEqual(mockUsers.findOne.mock.calls[0].arguments[1], { strict: false })
     })
 
     it('should throw INVALID_CREATED_BY when provided createdBy user does not exist', async () => {
