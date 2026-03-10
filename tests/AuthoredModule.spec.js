@@ -123,6 +123,16 @@ describe('AuthoredModule', () => {
       assert.equal(mod.preDeleteHook.tap.mock.calls.length, 1)
     })
 
+    it('should pass the instance as scope to requestHook.tap', async () => {
+      const { instance } = createInstance()
+      const mod = createMockMod()
+
+      await instance.registerModule(mod)
+
+      const tapCall = mod.requestHook.tap.mock.calls[0]
+      assert.equal(tapCall.arguments[1], instance)
+    })
+
     it('should throw when registering a duplicate module', async () => {
       const { instance } = createInstance()
       const mod = createMockMod()
