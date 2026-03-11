@@ -471,9 +471,9 @@ describe('AuthoredModule', () => {
   })
 
   describe('#updateCourseTimestamp()', () => {
-    it('should update course config timestamp when config exists', async () => {
-      const mockConfig = { _id: 'config1' }
-      const mockContent = createMockContentModule({ findOneResult: mockConfig })
+    it('should update course timestamp when course exists', async () => {
+      const mockCourse = { _id: 'course1' }
+      const mockContent = createMockContentModule({ findOneResult: mockCourse })
       const mockMongodb = { update: mock.fn(async () => {}) }
       const { instance } = createInstance({
         waitForModule: mock.fn(async () => [mockContent, mockMongodb])
@@ -483,16 +483,16 @@ describe('AuthoredModule', () => {
 
       assert.equal(mockContent.findOne.mock.calls.length, 1)
       const findArgs = mockContent.findOne.mock.calls[0].arguments
-      assert.deepEqual(findArgs[0], { _type: 'config', _courseId: 'course1' })
+      assert.deepEqual(findArgs[0], { _type: 'course', _courseId: 'course1' })
 
       assert.equal(mockMongodb.update.mock.calls.length, 1)
       const updateArgs = mockMongodb.update.mock.calls[0].arguments
       assert.equal(updateArgs[0], 'content')
-      assert.deepEqual(updateArgs[1], { _id: 'config1' })
+      assert.deepEqual(updateArgs[1], { _id: 'course1' })
       assert.ok(updateArgs[2].$set.updatedAt)
     })
 
-    it('should return early when no config is found', async () => {
+    it('should return early when no course is found', async () => {
       const mockContent = createMockContentModule()
       const mockMongodb = { update: mock.fn(async () => {}) }
       const { instance } = createInstance({
@@ -504,7 +504,7 @@ describe('AuthoredModule', () => {
       assert.equal(mockMongodb.update.mock.calls.length, 0)
     })
 
-    it('should return early when findOne returns null', async () => {
+    it('should return early when course findOne returns null', async () => {
       const mockContent = createMockContentModule({ findOneResult: null })
       const mockMongodb = { update: mock.fn(async () => {}) }
       const { instance } = createInstance({
