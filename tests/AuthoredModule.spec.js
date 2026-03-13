@@ -397,6 +397,27 @@ describe('AuthoredModule', () => {
       assert.equal(mockUsers.findOne.mock.calls.length, 1)
     })
 
+    it('should skip validation entirely when modifying is false even if createdBy is present', async () => {
+      const mockUsers = { findOne: mock.fn(async () => null) }
+      const { instance: inst } = createInstance({
+        waitForModule: mock.fn(async () => mockUsers)
+      })
+      const req = {
+        method: 'POST',
+        apiData: {
+          modifying: false,
+          data: { createdBy: { $ne: 'someUserId' } }
+        },
+        auth: {
+          user: { _id: { toString: () => 'user123' } }
+        }
+      }
+
+      await assert.doesNotReject(() => inst.updateAuthor(req))
+
+      assert.equal(mockUsers.findOne.mock.calls.length, 0)
+    })
+
     it('should not validate createdBy on non-POST requests when createdBy is absent', async () => {
       const mockUsers = { findOne: mock.fn(async () => null) }
       const { instance: inst } = createInstance({
