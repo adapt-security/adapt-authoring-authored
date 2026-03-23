@@ -3,6 +3,14 @@ import assert from 'node:assert/strict'
 import AuthoredModule from '../lib/AuthoredModule.js'
 
 /**
+ * Creates a mock DataCache that returns the given data from get()
+ * @param {Array} data The data to return from get()
+ */
+function createMockCache (data) {
+  return { get: mock.fn(async () => data ?? []) }
+}
+
+/**
  * Creates a mock app object with configurable overrides.
  * The AuthoredModule extends AbstractModule which calls init() in
  * the constructor, so we must prevent the real init from running
@@ -51,15 +59,10 @@ function createInstance (overrides = {}) {
   // Manually set properties that init() would set
   instance.schemaName = 'authored'
   instance.registeredModules = []
+  instance.userCache = createMockCache()
+  instance.courseCache = createMockCache()
 
   return { instance, mockApp, mockJsonschema }
-}
-
-function createMockContentModule (opts = {}) {
-  return {
-    findOne: mock.fn(async () => opts.findOneResult ?? undefined),
-    collectionName: opts.collectionName || 'content'
-  }
 }
 
 function createMockMod (opts = {}) {
@@ -283,10 +286,8 @@ describe('AuthoredModule', () => {
     })
 
     it('should not overwrite existing createdBy when user exists', async () => {
-      const mockUsers = { findOne: mock.fn(async () => ({ _id: 'existingUser' })) }
-      const { instance: inst } = createInstance({
-        waitForModule: mock.fn(async () => mockUsers)
-      })
+      const { instance: inst } = createInstance()
+      inst.userCache = createMockCache([{ _id: 'existingUser' }])
       const req = {
         method: 'POST',
         apiData: {
@@ -301,9 +302,8 @@ describe('AuthoredModule', () => {
       await inst.updateAuthor(req)
 
       assert.equal(req.apiData.data.createdBy, 'existingUser')
-      assert.equal(mockUsers.findOne.mock.calls.length, 1)
-      assert.deepEqual(mockUsers.findOne.mock.calls[0].arguments[0], { _id: 'existingUser' })
-      assert.deepEqual(mockUsers.findOne.mock.calls[0].arguments[1], { strict: false })
+      assert.equal(inst.userCache.get.mock.calls.length, 1)
+      assert.deepEqual(inst.userCache.get.mock.calls[0].arguments[0], { _id: 'existingUser' })
     })
 
     it('should not set createdBy when modifying is undefined', async () => {
@@ -323,10 +323,8 @@ describe('AuthoredModule', () => {
     })
 
     it('should validate an explicitly provided createdBy and accept when user exists', async () => {
-      const mockUsers = { findOne: mock.fn(async () => ({ _id: 'user456' })) }
-      const { instance: inst } = createInstance({
-        waitForModule: mock.fn(async () => mockUsers)
-      })
+      const { instance: inst } = createInstance()
+      inst.userCache = createMockCache([{ _id: 'user456' }])
       const req = {
         method: 'POST',
         apiData: {
@@ -340,16 +338,13 @@ describe('AuthoredModule', () => {
 
       await assert.doesNotReject(() => inst.updateAuthor(req))
 
-      assert.equal(mockUsers.findOne.mock.calls.length, 1)
-      assert.deepEqual(mockUsers.findOne.mock.calls[0].arguments[0], { _id: 'user456' })
-      assert.deepEqual(mockUsers.findOne.mock.calls[0].arguments[1], { strict: false })
+      assert.equal(inst.userCache.get.mock.calls.length, 1)
+      assert.deepEqual(inst.userCache.get.mock.calls[0].arguments[0], { _id: 'user456' })
     })
 
     it('should throw INVALID_CREATED_BY when provided createdBy user does not exist', async () => {
-      const mockUsers = { findOne: mock.fn(async () => null) }
-      const { instance: inst } = createInstance({
-        waitForModule: mock.fn(async () => mockUsers)
-      })
+      const { instance: inst } = createInstance()
+      inst.userCache = createMockCache([])
       const req = {
         method: 'POST',
         apiData: {
@@ -371,10 +366,8 @@ describe('AuthoredModule', () => {
     })
 
     it('should validate createdBy on non-POST requests (e.g. PUT) when provided', async () => {
-      const mockUsers = { findOne: mock.fn(async () => null) }
-      const { instance: inst } = createInstance({
-        waitForModule: mock.fn(async () => mockUsers)
-      })
+      const { instance: inst } = createInstance()
+      inst.userCache = createMockCache([])
       const req = {
         method: 'PUT',
         apiData: {
@@ -394,14 +387,11 @@ describe('AuthoredModule', () => {
         }
       )
 
-      assert.equal(mockUsers.findOne.mock.calls.length, 1)
+      assert.equal(inst.userCache.get.mock.calls.length, 1)
     })
 
     it('should skip validation entirely when modifying is false even if createdBy is present', async () => {
-      const mockUsers = { findOne: mock.fn(async () => null) }
-      const { instance: inst } = createInstance({
-        waitForModule: mock.fn(async () => mockUsers)
-      })
+      const { instance: inst } = createInstance()
       const req = {
         method: 'POST',
         apiData: {
@@ -415,14 +405,11 @@ describe('AuthoredModule', () => {
 
       await assert.doesNotReject(() => inst.updateAuthor(req))
 
-      assert.equal(mockUsers.findOne.mock.calls.length, 0)
+      assert.equal(inst.userCache.get.mock.calls.length, 0)
     })
 
     it('should not validate createdBy on non-POST requests when createdBy is absent', async () => {
-      const mockUsers = { findOne: mock.fn(async () => null) }
-      const { instance: inst } = createInstance({
-        waitForModule: mock.fn(async () => mockUsers)
-      })
+      const { instance: inst } = createInstance()
       const req = {
         method: 'PUT',
         apiData: {
@@ -436,18 +423,17 @@ describe('AuthoredModule', () => {
 
       await assert.doesNotReject(() => inst.updateAuthor(req))
 
-      assert.equal(mockUsers.findOne.mock.calls.length, 0)
+      assert.equal(inst.userCache.get.mock.calls.length, 0)
     })
   })
 
   describe('#updateTimestamps()', () => {
-    let instance, mockContent, mockMongodb
+    let instance, mockMongodb
 
     beforeEach(() => {
-      mockContent = createMockContentModule()
       mockMongodb = { update: mock.fn(async () => {}) }
       ;({ instance } = createInstance({
-        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
+        waitForModule: mock.fn(async () => mockMongodb)
       }))
     })
 
@@ -487,24 +473,24 @@ describe('AuthoredModule', () => {
       const data = { _courseId: 'course1' }
       await instance.updateTimestamps('update', data)
 
-      assert.ok(mockContent.findOne.mock.calls.length > 0)
+      assert.ok(instance.courseCache.get.mock.calls.length > 0)
     })
   })
 
   describe('#updateCourseTimestamp()', () => {
     it('should update course timestamp when course exists', async () => {
-      const mockCourse = { _id: 'course1' }
-      const mockContent = createMockContentModule({ findOneResult: mockCourse })
       const mockMongodb = { update: mock.fn(async () => {}) }
       const { instance } = createInstance({
-        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
+        waitForModule: mock.fn(async () => mockMongodb)
       })
+      instance.courseCache = createMockCache([{ _id: 'course1' }])
 
       await instance.updateCourseTimestamp({ _courseId: 'course1' })
 
-      assert.equal(mockContent.findOne.mock.calls.length, 1)
-      const findArgs = mockContent.findOne.mock.calls[0].arguments
-      assert.deepEqual(findArgs[0], { _type: 'course', _courseId: 'course1' })
+      assert.equal(instance.courseCache.get.mock.calls.length, 1)
+      const cacheArgs = instance.courseCache.get.mock.calls[0].arguments
+      assert.deepEqual(cacheArgs[0], { _type: 'course', _courseId: 'course1' })
+      assert.deepEqual(cacheArgs[1], { collectionName: 'content' })
 
       assert.equal(mockMongodb.update.mock.calls.length, 1)
       const updateArgs = mockMongodb.update.mock.calls[0].arguments
@@ -514,23 +500,11 @@ describe('AuthoredModule', () => {
     })
 
     it('should return early when no course is found', async () => {
-      const mockContent = createMockContentModule()
       const mockMongodb = { update: mock.fn(async () => {}) }
       const { instance } = createInstance({
-        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
+        waitForModule: mock.fn(async () => mockMongodb)
       })
-
-      await instance.updateCourseTimestamp({ _courseId: 'course1' })
-
-      assert.equal(mockMongodb.update.mock.calls.length, 0)
-    })
-
-    it('should return early when course findOne returns null', async () => {
-      const mockContent = createMockContentModule({ findOneResult: null })
-      const mockMongodb = { update: mock.fn(async () => {}) }
-      const { instance } = createInstance({
-        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
-      })
+      instance.courseCache = createMockCache([])
 
       await instance.updateCourseTimestamp({ _courseId: 'course1' })
 
@@ -538,46 +512,27 @@ describe('AuthoredModule', () => {
     })
 
     it('should return early when _courseId is missing', async () => {
-      const mockContent = createMockContentModule()
       const mockMongodb = { update: mock.fn(async () => {}) }
       const { instance } = createInstance({
-        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
+        waitForModule: mock.fn(async () => mockMongodb)
       })
 
       await instance.updateCourseTimestamp({})
 
-      assert.equal(mockContent.findOne.mock.calls.length, 0)
+      assert.equal(instance.courseCache.get.mock.calls.length, 0)
       assert.equal(mockMongodb.update.mock.calls.length, 0)
     })
 
     it('should return early when _courseId is undefined', async () => {
-      const mockContent = createMockContentModule()
       const mockMongodb = { update: mock.fn(async () => {}) }
       const { instance } = createInstance({
-        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
+        waitForModule: mock.fn(async () => mockMongodb)
       })
 
       await instance.updateCourseTimestamp({ _courseId: undefined })
 
-      assert.equal(mockContent.findOne.mock.calls.length, 0)
+      assert.equal(instance.courseCache.get.mock.calls.length, 0)
       assert.equal(mockMongodb.update.mock.calls.length, 0)
-    })
-
-    it('should use the correct collection name from the content module', async () => {
-      const mockConfig = { _id: 'config42' }
-      const mockContent = createMockContentModule({
-        findOneResult: mockConfig,
-        collectionName: 'myCustomCollection'
-      })
-      const mockMongodb = { update: mock.fn(async () => {}) }
-      const { instance } = createInstance({
-        waitForModule: mock.fn(async () => [mockContent, mockMongodb])
-      })
-
-      await instance.updateCourseTimestamp({ _courseId: 'c1' })
-
-      const updateArgs = mockMongodb.update.mock.calls[0].arguments
-      assert.equal(updateArgs[0], 'myCustomCollection')
     })
   })
 })
