@@ -183,6 +183,33 @@ describe('AuthoredModule', () => {
       // extendSchema should be called at least once via registerSchemas
       assert.ok(mockJsonschema.extendSchema.mock.calls.length >= 1)
     })
+
+    it('should set updatedAt on the real update data via the preUpdateHook tap', async () => {
+      const { instance } = createInstance()
+      const mod = createMockMod()
+      await instance.registerModule(mod)
+
+      const onUpdate = mod.preUpdateHook.tap.mock.calls[0].arguments[0]
+      const updateData = { title: 'x' }
+      await onUpdate({}, updateData)
+
+      // the object that gets written must receive updatedAt (regression: it was
+      // set on a discarded spread copy), and _courseId must not be injected
+      assert.ok(updateData.updatedAt, 'updatedAt set on the written update data')
+      assert.equal(updateData._courseId, undefined, '_courseId not injected into the document')
+    })
+
+    it('should bump the course using the original doc id when absent on the update', async () => {
+      const { instance } = createInstance()
+      const mod = createMockMod()
+      await instance.registerModule(mod)
+
+      const onUpdate = mod.preUpdateHook.tap.mock.calls[0].arguments[0]
+      await onUpdate({ _courseId: 'course1' }, { title: 'x' })
+
+      assert.equal(instance.courseCache.get.mock.calls.length, 1)
+      assert.deepEqual(instance.courseCache.get.mock.calls[0].arguments[0], { _type: 'course', _courseId: 'course1' })
+    })
   })
 
   describe('#registerSchemas()', () => {
