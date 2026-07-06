@@ -210,6 +210,18 @@ describe('AuthoredModule', () => {
       assert.equal(instance.courseCache.get.mock.calls.length, 1)
       assert.deepEqual(instance.courseCache.get.mock.calls[0].arguments[0], { _type: 'course', _courseId: 'course1' })
     })
+
+    it('should bump the course with only the course id on delete (no stale updatedBy)', async () => {
+      const { instance } = createInstance()
+      const mod = createMockMod()
+      await instance.registerModule(mod)
+      instance.updateCourseTimestamp = mock.fn(async () => {})
+
+      const onDelete = mod.preDeleteHook.tap.mock.calls[0].arguments[0]
+      await onDelete({ _courseId: 'course1', updatedBy: 'oldEditor' })
+
+      assert.deepEqual(instance.updateCourseTimestamp.mock.calls[0].arguments[0], { _courseId: 'course1' })
+    })
   })
 
   describe('#registerSchemas()', () => {
@@ -452,6 +464,42 @@ describe('AuthoredModule', () => {
 
       assert.equal(inst.userCache.get.mock.calls.length, 0)
     })
+
+    it('should set updatedBy to the acting user on a modifying POST', async () => {
+      const req = {
+        method: 'POST',
+        apiData: { modifying: true, data: {} },
+        auth: { user: { _id: { toString: () => 'user123' } } }
+      }
+
+      await instance.updateAuthor(req)
+
+      assert.equal(req.apiData.data.updatedBy, 'user123')
+    })
+
+    it('should set updatedBy to the acting user on a modifying non-POST', async () => {
+      const req = {
+        method: 'PUT',
+        apiData: { modifying: true, data: {} },
+        auth: { user: { _id: { toString: () => 'editor9' } } }
+      }
+
+      await instance.updateAuthor(req)
+
+      assert.equal(req.apiData.data.updatedBy, 'editor9')
+    })
+
+    it('should not set updatedBy when not modifying', async () => {
+      const req = {
+        method: 'POST',
+        apiData: { modifying: false, data: {} },
+        auth: { user: { _id: { toString: () => 'user123' } } }
+      }
+
+      await instance.updateAuthor(req)
+
+      assert.equal(req.apiData.data.updatedBy, undefined)
+    })
   })
 
   describe('#updateTimestamps()', () => {
@@ -501,6 +549,14 @@ describe('AuthoredModule', () => {
       await instance.updateTimestamps('update', data)
 
       assert.ok(instance.courseCache.get.mock.calls.length > 0)
+    })
+
+    it('should thread updatedBy from the write data through to the course bump', async () => {
+      instance.courseCache = createMockCache([{ _id: 'course1' }])
+      await instance.updateTimestamps('update', { _courseId: 'course1', updatedBy: 'editor9' })
+
+      const { $set } = mockMongodb.update.mock.calls[0].arguments[2]
+      assert.equal($set.updatedBy, 'editor9')
     })
   })
 
@@ -560,6 +616,86 @@ describe('AuthoredModule', () => {
 
       assert.equal(instance.courseCache.get.mock.calls.length, 0)
       assert.equal(mockMongodb.update.mock.calls.length, 0)
+    })
+
+    it('should stamp updatedBy on the course when provided', async () => {
+      const mockMongodb = { update: mock.fn(async () => {}) }
+      const { instance } = createInstance({
+        waitForModule: mock.fn(async () => mockMongodb)
+      })
+      instance.courseCache = createMockCache([{ _id: 'course1' }])
+
+      await instance.updateCourseTimestamp({ _courseId: 'course1', updatedBy: 'editor9' })
+
+      const { $set } = mockMongodb.update.mock.calls[0].arguments[2]
+      assert.ok($set.updatedAt)
+      assert.equal($set.updatedBy, 'editor9')
+    })
+
+    it('should not stamp updatedBy on the course when absent (e.g. deletes)', async () => {
+      const mockMongodb = { update: mock.fn(async () => {}) }
+      const { instance } = createInstance({
+        waitForModule: mock.fn(async () => mockMongodb)
+      })
+      instance.courseCache = createMockCache([{ _id: 'course1' }])
+
+      await instance.updateCourseTimestamp({ _courseId: 'course1' })
+
+      const { $set } = mockMongodb.update.mock.calls[0].arguments[2]
+      assert.ok($set.updatedAt)
+      assert.equal('updatedBy' in $set, false)
+    })
+  })
+
+  describe('#getRecentlyChanged()', () => {
+    function createMongodbMock (rows = []) {
+      const toArray = mock.fn(async () => rows)
+      const aggregate = mock.fn(() => ({ toArray }))
+      const getCollection = mock.fn(() => ({ aggregate }))
+      return { getCollection, aggregate, toArray }
+    }
+
+    it('should return an empty array when no modules are registered', async () => {
+      const { instance } = createInstance()
+      instance.registeredModules = []
+
+      assert.deepEqual(await instance.getRecentlyChanged(), [])
+    })
+
+    it('should aggregate over the registered collections and return the rows', async () => {
+      const mongodb = createMongodbMock([{ _id: 'a', collection: 'content' }])
+      const { instance } = createInstance({ waitForModule: mock.fn(async () => mongodb) })
+      instance.registeredModules = [{ collectionName: 'content' }, { collectionName: 'assets' }]
+
+      const rows = await instance.getRecentlyChanged({ limit: 10 })
+
+      assert.deepEqual(rows, [{ _id: 'a', collection: 'content' }])
+      assert.equal(mongodb.getCollection.mock.calls[0].arguments[0], 'content')
+      const pipeline = mongodb.aggregate.mock.calls[0].arguments[0]
+      assert.equal(pipeline.filter(s => s.$unionWith).length, 1)
+      assert.deepEqual(pipeline.at(-1), { $limit: 10 })
+    })
+
+    it('should pass per-collection filters into the pipeline', async () => {
+      const mongodb = createMongodbMock()
+      const { instance } = createInstance({ waitForModule: mock.fn(async () => mongodb) })
+      instance.registeredModules = [{ collectionName: 'content' }]
+
+      await instance.getRecentlyChanged({ filters: { content: { _type: 'course' } } })
+
+      const pipeline = mongodb.aggregate.mock.calls[0].arguments[0]
+      assert.deepEqual(pipeline[0].$match, { _type: 'course' })
+    })
+
+    it('should ignore registered modules without a collectionName', async () => {
+      const mongodb = createMongodbMock()
+      const { instance } = createInstance({ waitForModule: mock.fn(async () => mongodb) })
+      instance.registeredModules = [{ collectionName: 'content' }, { schemaName: 'noCollection' }]
+
+      await instance.getRecentlyChanged()
+
+      const pipeline = mongodb.aggregate.mock.calls[0].arguments[0]
+      assert.equal(pipeline.filter(s => s.$unionWith).length, 0)
     })
   })
 })
