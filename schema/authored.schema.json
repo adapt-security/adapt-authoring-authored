@@ -21,6 +21,11 @@
           "type": "string",
           "format": "date-time",
           "isDate": true
+        },
+        "updatedBy": {
+          "description": "User who last modified the data",
+          "type": "string",
+          "isObjectId": true
         }
       },
       "required": ["createdAt","createdBy","updatedAt"]
