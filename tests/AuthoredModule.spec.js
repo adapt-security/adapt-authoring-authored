@@ -73,7 +73,9 @@ function createMockMod (opts = {}) {
     requestHook: { tap: mock.fn() },
     preInsertHook: { tap: mock.fn() },
     preUpdateHook: { tap: mock.fn() },
-    preDeleteHook: { tap: mock.fn() }
+    preDeleteHook: { tap: mock.fn() },
+    accessCheckHook: { tap: mock.fn() },
+    accessQueryHook: { tap: mock.fn() }
   }
 }
 
@@ -174,6 +176,28 @@ describe('AuthoredModule', () => {
       assert.equal(instance.registeredModules.length, 1)
     })
 
+    it('should tap the ownership access hooks by default', async () => {
+      const { instance } = createInstance()
+      const mod = createMockMod()
+
+      await instance.registerModule(mod)
+
+      assert.equal(mod.accessCheckHook.tap.mock.calls.length, 1)
+      assert.equal(mod.accessQueryHook.tap.mock.calls.length, 1)
+      assert.equal(mod.accessCheckHook.tap.mock.calls[0].arguments[0], AuthoredModule.prototype.grantCreatorItem)
+      assert.equal(mod.accessQueryHook.tap.mock.calls[0].arguments[0], AuthoredModule.prototype.grantCreatorQuery)
+    })
+
+    it('should not tap the access hooks when accessCheck is false', async () => {
+      const { instance } = createInstance()
+      const mod = createMockMod()
+
+      await instance.registerModule(mod, { accessCheck: false })
+
+      assert.equal(mod.accessCheckHook.tap.mock.calls.length, 0)
+      assert.equal(mod.accessQueryHook.tap.mock.calls.length, 0)
+    })
+
     it('should call registerSchemas after registering', async () => {
       const { instance, mockJsonschema } = createInstance()
       const mod = createMockMod({ schemaName: 'testSchema' })
@@ -221,6 +245,36 @@ describe('AuthoredModule', () => {
       await onDelete({ _courseId: 'course1', updatedBy: 'oldEditor' })
 
       assert.deepEqual(instance.updateCourseTimestamp.mock.calls[0].arguments[0], { _courseId: 'course1' })
+    })
+  })
+
+  describe('#grantCreatorItem()', () => {
+    const grant = AuthoredModule.prototype.grantCreatorItem
+    it('should grant access to the creator', () => {
+      assert.equal(grant({ auth: { user: { _id: 'u1' } } }, { createdBy: 'u1' }), true)
+    })
+    it('should not grant access to a non-creator', () => {
+      assert.equal(grant({ auth: { user: { _id: 'u2' } } }, { createdBy: 'u1' }), false)
+    })
+    it('should not grant when unauthenticated', () => {
+      assert.equal(grant({ auth: {} }, { createdBy: 'u1' }), false)
+    })
+    it('should not grant when the resource has no createdBy', () => {
+      assert.equal(grant({ auth: { user: { _id: 'u1' } } }, {}), false)
+    })
+  })
+
+  describe('#grantCreatorQuery()', () => {
+    const grant = AuthoredModule.prototype.grantCreatorQuery
+    it('should widen the query with the creator id', () => {
+      const query = {}
+      grant({ auth: { user: { _id: 'u1' } }, apiData: { query } })
+      assert.deepEqual(query.$or, [{ createdBy: 'u1' }])
+    })
+    it('should be a no-op when unauthenticated', () => {
+      const query = {}
+      grant({ auth: {}, apiData: { query } })
+      assert.deepEqual(query, {})
     })
   })
 
