@@ -6,5 +6,14 @@
   "INVALID_CREATED_BY": {
     "description": "The specified createdBy user does not exist",
     "statusCode": 400
+  },
+  "USER_OWNS_CONTENT": {
+    "data": {
+      "_id": "_id of the user",
+      "total": "Total number of documents owned by the user",
+      "counts": "Map of collection name to owned-document count"
+    },
+    "description": "The user cannot be deleted because they still own content; transfer it to another user first",
+    "statusCode": 400
   }
 }
